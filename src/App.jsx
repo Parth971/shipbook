@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 const STORAGE_KEY = "shipbook_v1";
 const LEGACY_KEY = "massic_deploy_tracker_v1";
+const PREFS_KEY = "shipbook_prefs_v1";
 
 const TAGS = {
   normal: { label: "Normal", className: "tag-normal" },
@@ -58,7 +59,19 @@ function loadState() {
   return initialState();
 }
 
-function Icon({ name, size = 18 }) {
+const defaultPrefs = { entriesNewestFirst: false, historyNewestFirst: true };
+
+function loadPrefs() {
+  try {
+    const saved = localStorage.getItem(PREFS_KEY);
+    if (saved) return { ...defaultPrefs, ...JSON.parse(saved) };
+  } catch {
+    // Preferences are cosmetic; fall back to defaults.
+  }
+  return defaultPrefs;
+}
+
+function Icon({ name, size = 18, className = "" }) {
   const paths = {
     book: (
       <>
@@ -102,17 +115,18 @@ function Icon({ name, size = 18 }) {
     ),
     check: <path d="m5 12 4 4L19 6" />,
     back: <path d="m15 18-6-6 6-6" />,
-    more: (
+    sort: (
       <>
-        <circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
-        <circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />
-        <circle cx="19" cy="12" r="1" fill="currentColor" stroke="none" />
+        <path d="M6 4v16m0 0 3.2-3.4M6 20l-3.2-3.4" />
+        <path d="M13 6h8M13 12h6M13 18h4" />
       </>
     ),
+    chevron: <path d="m6 9 6 6 6-6" />,
   };
   return (
     <svg
       aria-hidden="true"
+      className={className}
       width={size}
       height={size}
       viewBox="0 0 24 24"
@@ -127,9 +141,87 @@ function Icon({ name, size = 18 }) {
   );
 }
 
+/** Textarea that grows with its content instead of scrolling inside a fixed box. */
+function AutoTextarea({ value, minRows = 3, ...rest }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    node.style.height = "auto";
+    node.style.height = `${node.scrollHeight}px`;
+  }, [value]);
+
+  return <textarea ref={ref} rows={minRows} value={value} {...rest} />;
+}
+
 function Tag({ tag }) {
   const details = TAGS[tag] ?? TAGS.normal;
   return <span className={`tag ${details.className}`}>{details.label}</span>;
+}
+
+const TAG_MENU_HEIGHT = 132;
+
+function TagSelect({ tag, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
+  const trigger = useRef(null);
+  const details = TAGS[tag] ?? TAGS.normal;
+
+  function toggle() {
+    const box = trigger.current?.getBoundingClientRect();
+    if (box) {
+      const spaceBelow = window.innerHeight - box.bottom;
+      setDropUp(spaceBelow < TAG_MENU_HEIGHT && box.top > spaceBelow);
+    }
+    setOpen((value) => !value);
+  }
+
+  return (
+    <div
+      className="tag-select"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setOpen(false);
+      }}
+    >
+      <button
+        ref={trigger}
+        className={`tag tag-button ${details.className}`}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title="Change type"
+        onClick={toggle}
+      >
+        {details.label}
+        <Icon name="chevron" size={11} />
+      </button>
+      {open && (
+        <div className={`tag-menu ${dropUp ? "drop-up" : ""}`} role="listbox">
+          {Object.entries(TAGS).map(([value, option]) => (
+            <button
+              key={value}
+              role="option"
+              aria-selected={value === tag}
+              className={`tag-menu-item ${option.className} ${value === tag ? "active" : ""}`}
+              type="button"
+              onClick={() => {
+                onChange(value);
+                setOpen(false);
+              }}
+            >
+              <span className="dot" />
+              {option.label}
+              {value === tag && <Icon name="check" size={13} />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function EmptyState({ icon, title, copy }) {
@@ -158,39 +250,43 @@ function EntryComposer({ onAdd }) {
 
   return (
     <form className="composer" onSubmit={submit}>
-      <div className="composer-main">
+      <div className="composer-head">
         <span className="composer-plus">
-          <Icon name="plus" size={18} />
+          <Icon name="plus" size={15} />
         </span>
-        <textarea
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              submit(event);
-            }
-          }}
-          rows="1"
-          placeholder="What’s going out in the next ship?"
-          aria-label="New entry"
-        />
-        <button className="button button-dark" disabled={!text.trim()} type="submit">
+        <span className="composer-label">New entry</span>
+        <span className="composer-hint">⌘/Ctrl + Enter to add</span>
+      </div>
+      <AutoTextarea
+        className="composer-input"
+        minRows={4}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) submit(event);
+        }}
+        placeholder={
+          "What’s going out in the next ship?\n\nWrite as much as you need — line breaks are kept."
+        }
+        aria-label="New entry"
+      />
+      <div className="composer-foot">
+        <div className="tag-picker" aria-label="Entry type">
+          {Object.entries(TAGS).map(([value, details]) => (
+            <button
+              className={`tag-choice ${tag === value ? "active" : ""} ${details.className}`}
+              key={value}
+              type="button"
+              onClick={() => setTag(value)}
+            >
+              <span className="dot" />
+              {details.label}
+            </button>
+          ))}
+        </div>
+        <button className="button button-primary" disabled={!text.trim()} type="submit">
           Add entry
         </button>
-      </div>
-      <div className="tag-picker" aria-label="Entry type">
-        {Object.entries(TAGS).map(([value, details]) => (
-          <button
-            className={`tag-choice ${tag === value ? "active" : ""} ${details.className}`}
-            key={value}
-            type="button"
-            onClick={() => setTag(value)}
-          >
-            <span />
-            {details.label}
-          </button>
-        ))}
       </div>
     </form>
   );
@@ -229,18 +325,22 @@ function RunItemForm({ nextOrder, onAdd, onCancel }) {
           After push
         </button>
       </div>
-      <textarea
+      <AutoTextarea
         autoFocus
-        rows="2"
+        minRows={3}
         value={text}
         onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) submit(event);
+          if (event.key === "Escape") onCancel();
+        }}
         placeholder="Paste a command or describe the step…"
       />
       <div className="run-form-actions">
         <button className="button button-quiet" type="button" onClick={onCancel}>
           Cancel
         </button>
-        <button className="button button-dark" type="submit" disabled={!text.trim()}>
+        <button className="button button-primary" type="submit" disabled={!text.trim()}>
           Add run item
         </button>
       </div>
@@ -253,15 +353,22 @@ function EntryCard({ entry, number, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry.text);
 
+  function startEditing() {
+    setDraft(entry.text);
+    setEditing(true);
+  }
+
   function saveText() {
     const text = draft.trim();
     if (text) onUpdate({ ...entry, text });
-    else setDraft(entry.text);
     setEditing(false);
   }
 
   const nextOrder = (timing) =>
-    Math.max(0, ...entry.runItems.filter((item) => item.timing === timing).map((item) => item.order)) + 1;
+    Math.max(
+      0,
+      ...entry.runItems.filter((item) => item.timing === timing).map((item) => item.order),
+    ) + 1;
 
   return (
     <article className="entry-card">
@@ -269,27 +376,31 @@ function EntryCard({ entry, number, onUpdate, onDelete }) {
         <span className="entry-number">{String(number).padStart(2, "0")}</span>
         <div className="entry-content">
           {editing ? (
-            <textarea
-              className="entry-edit"
-              autoFocus
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onBlur={saveText}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) saveText();
-                if (event.key === "Escape") {
-                  setDraft(entry.text);
-                  setEditing(false);
-                }
-              }}
-            />
+            <div className="entry-editor">
+              <AutoTextarea
+                className="entry-edit"
+                autoFocus
+                minRows={3}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onBlur={saveText}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) saveText();
+                  if (event.key === "Escape") {
+                    setDraft(entry.text);
+                    setEditing(false);
+                  }
+                }}
+              />
+              <span className="edit-hint">Click away to save · Esc to discard</span>
+            </div>
           ) : (
-            <button className="entry-title" onClick={() => setEditing(true)}>
+            <button className="entry-text" onClick={startEditing} title="Click to edit">
               {entry.text}
             </button>
           )}
           <div className="entry-meta">
-            <Tag tag={entry.tag} />
+            <TagSelect tag={entry.tag} onChange={(tag) => onUpdate({ ...entry, tag })} />
             {entry.runItems.length > 0 && (
               <span className="run-count">
                 {entry.runItems.length} run item{entry.runItems.length === 1 ? "" : "s"}
@@ -355,10 +466,23 @@ function EntryCard({ entry, number, onUpdate, onDelete }) {
   );
 }
 
-function CurrentShip({ ship, historyCount, onChange, onNavigate, onShip }) {
+function CurrentShip({
+  ship,
+  historyCount,
+  newestFirst,
+  onToggleOrder,
+  onChange,
+  onNavigate,
+  onShip,
+}) {
   const entryCount = ship.entries.length;
   const breakingCount = ship.entries.filter((entry) => entry.tag === "breaking").length;
   const runCount = ship.entries.reduce((total, entry) => total + entry.runItems.length, 0);
+
+  const ordered = useMemo(() => {
+    const numbered = ship.entries.map((entry, index) => ({ entry, number: index + 1 }));
+    return newestFirst ? numbered.reverse() : numbered;
+  }, [ship.entries, newestFirst]);
 
   function addEntry(entry) {
     onChange({ ...ship, entries: [...ship.entries, entry] });
@@ -416,7 +540,19 @@ function CurrentShip({ ship, historyCount, onChange, onNavigate, onShip }) {
       <section className="entries-section">
         <div className="section-heading">
           <h2>Entries</h2>
-          {entryCount > 0 && <span>{entryCount} total</span>}
+          <div className="section-tools">
+            {entryCount > 0 && <span className="section-count">{entryCount} total</span>}
+            {entryCount > 1 && (
+              <button
+                className="sort-toggle"
+                onClick={onToggleOrder}
+                title="Flip the order of the list"
+              >
+                <Icon name="sort" size={14} className={newestFirst ? "flipped" : ""} />
+                {newestFirst ? "Newest first" : "Oldest first"}
+              </button>
+            )}
+          </div>
         </div>
         {entryCount === 0 ? (
           <EmptyState
@@ -425,11 +561,11 @@ function CurrentShip({ ship, historyCount, onChange, onNavigate, onShip }) {
             copy="Add product changes, fixes, migrations, and anything else that needs to reach production."
           />
         ) : (
-          <div className="entry-list">
-            {ship.entries.map((entry, index) => (
+          <div className="entry-list" key={newestFirst ? "newest" : "oldest"}>
+            {ordered.map(({ entry, number }) => (
               <EntryCard
                 entry={entry}
-                number={index + 1}
+                number={number}
                 key={entry.id}
                 onUpdate={updateEntry}
                 onDelete={(id) => {
@@ -568,7 +704,9 @@ function ShippingView({ ship, onBack, onComplete }) {
 
       <div className="complete-bar">
         <div>
-          <strong>{canComplete ? "Everything is done." : "Complete the checklist to finish."}</strong>
+          <strong>
+            {canComplete ? "Everything is done." : "Complete the checklist to finish."}
+          </strong>
           <span>{ship.entries.length} entries will be added to history.</span>
         </div>
         <button className="button button-ship" disabled={!canComplete} onClick={onComplete}>
@@ -579,8 +717,9 @@ function ShippingView({ ship, onBack, onComplete }) {
   );
 }
 
-function HistoryView({ history }) {
+function HistoryView({ history, newestFirst, onToggleOrder }) {
   const [open, setOpen] = useState(null);
+  const ships = newestFirst ? [...history].reverse() : history;
 
   return (
     <>
@@ -590,6 +729,12 @@ function HistoryView({ history }) {
           <h1>Ship history</h1>
           <p className="page-subtitle">A durable record of what reached production and when.</p>
         </div>
+        {history.length > 1 && (
+          <button className="sort-toggle" onClick={onToggleOrder} title="Flip the order of the list">
+            <Icon name="sort" size={14} className={newestFirst ? "flipped" : ""} />
+            {newestFirst ? "Newest first" : "Oldest first"}
+          </button>
+        )}
       </header>
       {history.length === 0 ? (
         <EmptyState
@@ -598,8 +743,8 @@ function HistoryView({ history }) {
           copy="Completed ships will live here with their entries and run items intact."
         />
       ) : (
-        <div className="history-list">
-          {[...history].reverse().map((ship) => {
+        <div className="history-list" key={newestFirst ? "newest" : "oldest"}>
+          {ships.map((ship) => {
             const expanded = open === ship.id;
             const runCount = ship.entries.reduce(
               (total, entry) => total + entry.runItems.length,
@@ -705,7 +850,7 @@ function DataView({ state, onImport, onReset }) {
           </span>
           <h2>Export your Shipbook</h2>
           <p>Download the current ship and full history as a portable JSON file.</p>
-          <button className="button button-dark" onClick={download}>
+          <button className="button button-primary" onClick={download}>
             Download backup
           </button>
         </section>
@@ -715,7 +860,13 @@ function DataView({ state, onImport, onReset }) {
           </span>
           <h2>Restore a backup</h2>
           <p>Import a Shipbook JSON file. This replaces the data in this browser.</p>
-          <input ref={fileInput} hidden type="file" accept=".json,application/json" onChange={readFile} />
+          <input
+            ref={fileInput}
+            hidden
+            type="file"
+            accept=".json,application/json"
+            onChange={readFile}
+          />
           <button className="button button-outline" onClick={() => fileInput.current?.click()}>
             Choose backup
           </button>
@@ -778,11 +929,18 @@ function Sidebar({ view, onNavigate }) {
 
 export default function App() {
   const [state, setState] = useState(loadState);
+  const [prefs, setPrefs] = useState(loadPrefs);
   const [view, setView] = useState("current");
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  useEffect(() => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  }, [prefs]);
+
+  const toggleOrder = (key) => setPrefs((value) => ({ ...value, [key]: !value[key] }));
 
   function completeShip() {
     setState((current) => ({
@@ -790,7 +948,11 @@ export default function App() {
       current: newShip(),
       history: [
         ...current.history,
-        { ...current.current, title: current.current.title.trim() || "Untitled ship", shippedAt: new Date().toISOString() },
+        {
+          ...current.current,
+          title: current.current.title.trim() || "Untitled ship",
+          shippedAt: new Date().toISOString(),
+        },
       ],
     }));
     setView("history");
@@ -816,12 +978,20 @@ export default function App() {
           <CurrentShip
             ship={state.current}
             historyCount={state.history.length}
+            newestFirst={prefs.entriesNewestFirst}
+            onToggleOrder={() => toggleOrder("entriesNewestFirst")}
             onChange={(current) => setState((value) => ({ ...value, current }))}
             onNavigate={setView}
             onShip={() => setView("shipping")}
           />
         )}
-        {view === "history" && <HistoryView history={state.history} />}
+        {view === "history" && (
+          <HistoryView
+            history={state.history}
+            newestFirst={prefs.historyNewestFirst}
+            onToggleOrder={() => toggleOrder("historyNewestFirst")}
+          />
+        )}
         {view === "data" && (
           <DataView
             state={state}
