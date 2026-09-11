@@ -122,6 +122,12 @@ function Icon({ name, size = 18, className = "" }) {
       </>
     ),
     check: <path d="m5 12 4 4L19 6" />,
+    copy: (
+      <>
+        <rect x="8.5" y="8.5" width="12.5" height="12.5" rx="2.2" />
+        <path d="M5 15.5H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8.5a2 2 0 0 1 2 2" />
+      </>
+    ),
     note: (
       <>
         <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" />
@@ -636,20 +642,69 @@ function CurrentShip({
   );
 }
 
-function CheckRow({ item, checked, disabled, onToggle, isPush = false }) {
+async function writeToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // Older browsers, and any page not served over https, need the legacy path.
+  }
+
+  const holder = document.body.appendChild(document.createElement("textarea"));
+  holder.value = text;
+  holder.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  holder.remove();
+  return copied;
+}
+
+function CopyButton({ text, title = "Copy to clipboard" }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return undefined;
+    const timer = setTimeout(() => setCopied(false), 1600);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
   return (
     <button
-      className={`check-row ${checked ? "checked" : ""} ${isPush ? "push-row" : ""}`}
-      disabled={disabled}
-      onClick={onToggle}
+      className={`copy-button ${copied ? "copied" : ""}`}
+      title={copied ? "Copied" : title}
+      onClick={async () => setCopied(await writeToClipboard(text))}
     >
-      <span className="checkbox">{checked && <Icon name="check" size={14} />}</span>
-      <span className="check-copy">
-        <strong>{item.text}</strong>
-        {item.entry && <small>From: {toPlainText(item.entry)}</small>}
-      </span>
-      {!isPush && <span className="order">#{item.order}</span>}
+      <Icon name={copied ? "check" : "copy"} size={14} />
+      <span>{copied ? "Copied" : "Copy"}</span>
     </button>
+  );
+}
+
+function CheckRow({ item, checked, disabled, onToggle, isPush = false }) {
+  return (
+    <div
+      className={`check-row ${checked ? "checked" : ""} ${isPush ? "push-row" : ""} ${
+        disabled ? "row-disabled" : ""
+      }`}
+    >
+      <button className="check-toggle" disabled={disabled} onClick={onToggle}>
+        <span className="checkbox">{checked && <Icon name="check" size={14} />}</span>
+        <span className="check-copy">
+          <strong>{item.text}</strong>
+          {item.entry && <small>From: {toPlainText(item.entry)}</small>}
+        </span>
+      </button>
+      {!isPush && (
+        <>
+          <CopyButton text={item.text} title="Copy this run item" />
+          <span className="order">#{item.order}</span>
+        </>
+      )}
+    </div>
   );
 }
 

@@ -1269,22 +1269,72 @@ code {
   width: 100%;
   gap: 12px;
   padding: 13px 16px;
-  border: 0;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
 }
 
 .check-row + .check-row {
   border-top: 1px solid var(--soft-line);
 }
 
-.check-row:disabled {
+.check-row:not(.row-disabled):hover {
+  background: var(--bg);
+}
+
+.check-toggle {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.check-toggle:disabled {
   cursor: not-allowed;
 }
 
-.check-row:not(:disabled):hover {
-  background: var(--bg);
+.copy-button {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: var(--card);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0;
+  transition: 120ms ease;
+}
+
+.check-row:hover .copy-button,
+.copy-button:focus-visible,
+.copy-button.copied {
+  opacity: 1;
+}
+
+.copy-button:hover {
+  color: var(--accent);
+  border-color: #c3cee8;
+  background: var(--accent-soft);
+}
+
+.copy-button.copied {
+  color: var(--green);
+  border-color: #b4dcc6;
+  background: rgba(18, 115, 74, 0.08);
+}
+
+@media (hover: none) {
+  .copy-button {
+    opacity: 1;
+  }
 }
 
 .checkbox {
@@ -1340,6 +1390,8 @@ code {
 }
 
 .order {
+  flex: 0 0 auto;
+  margin-top: 3px;
   color: var(--faint);
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 12px;
