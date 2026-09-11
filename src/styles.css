@@ -445,31 +445,181 @@ code {
   font-size: 11px;
 }
 
-.composer-input {
-  display: block;
-  width: 100%;
-  min-height: 112px;
-  max-height: 60vh;
-  margin: 10px 0 0;
-  padding: 12px 13px;
-  resize: none;
-  overflow-y: auto;
+/* Editor (Quill snow theme, restyled) */
+.editor {
+  overflow: hidden;
   border: 1px solid var(--soft-line);
   border-radius: var(--radius);
-  color: var(--ink);
   background: var(--raised);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.editor:focus-within {
+  border-color: #c3cee8;
+  background: var(--card);
+  box-shadow: 0 0 0 3px rgba(47, 86, 211, 0.09);
+}
+
+.composer-editor {
+  margin-top: 10px;
+}
+
+.editor .ql-toolbar.ql-snow {
+  padding: 5px 7px;
+  border: 0;
+  border-bottom: 1px solid var(--soft-line);
+  background: var(--card);
+  font-family: inherit;
+}
+
+.editor .ql-toolbar.ql-snow .ql-formats {
+  margin-right: 10px;
+}
+
+.editor .ql-container.ql-snow {
+  border: 0;
+  font-family: inherit;
   font-size: 15px;
+}
+
+.editor .ql-editor {
+  min-height: 104px;
+  max-height: 55vh;
+  padding: 11px 13px;
+  color: var(--ink);
   line-height: 1.6;
 }
 
-.composer-input::placeholder {
+.editor .ql-editor.ql-blank::before {
+  left: 13px;
+  right: 13px;
   color: var(--faint);
+  font-style: normal;
 }
 
-.composer-input:focus {
-  border-color: var(--line);
-  background: var(--card);
-  outline: none;
+.entry-edit .ql-editor {
+  min-height: 78px;
+}
+
+.ql-snow.ql-toolbar button,
+.ql-snow .ql-toolbar button {
+  width: 27px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.ql-snow.ql-toolbar button:hover,
+.ql-snow.ql-toolbar button.ql-active {
+  background: var(--accent-soft);
+}
+
+.ql-snow .ql-stroke {
+  stroke: var(--ink-2);
+}
+
+.ql-snow .ql-fill {
+  fill: var(--ink-2);
+}
+
+.ql-snow.ql-toolbar button:hover .ql-stroke,
+.ql-snow.ql-toolbar button.ql-active .ql-stroke {
+  stroke: var(--accent);
+}
+
+.ql-snow.ql-toolbar button:hover .ql-fill,
+.ql-snow.ql-toolbar button.ql-active .ql-fill {
+  fill: var(--accent);
+}
+
+/* Link tooltip */
+.editor .ql-snow .ql-tooltip {
+  z-index: 30;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  box-shadow: var(--shadow-pop);
+}
+
+.editor .ql-snow .ql-tooltip input[type="text"] {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.editor .ql-snow .ql-tooltip a.ql-action,
+.editor .ql-snow .ql-tooltip a.ql-remove {
+  color: var(--accent);
+  font-size: 13px;
+}
+
+/* Rendered entry content */
+.rich.ql-editor {
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
+  line-height: 1.6;
+}
+
+.rich.plain {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rich p,
+.rich li {
+  overflow-wrap: anywhere;
+}
+
+.rich p + p,
+.rich ul,
+.rich ol,
+.rich blockquote,
+.rich pre {
+  margin-top: 8px;
+}
+
+.rich a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rich blockquote {
+  margin-bottom: 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--line);
+  color: var(--ink-2);
+}
+
+.rich pre,
+.editor .ql-editor pre {
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--ink-2);
+  background: #eef1f5;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rich code,
+.editor .ql-editor code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  color: #b3305f;
+  background: #f1f0f5;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.rich pre code {
+  padding: 0;
+  color: inherit;
+  background: none;
 }
 
 .composer-foot {
@@ -778,58 +928,46 @@ code {
 }
 
 .entry-text {
-  display: block;
-  width: 100%;
-  padding: 3px 6px;
-  border: 1px solid transparent;
+  padding: 4px 7px;
   border-radius: 7px;
-  color: var(--ink);
-  background: none;
   font-size: 15px;
   font-weight: 500;
-  line-height: 1.6;
-  text-align: left;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
   cursor: text;
-  transition: 120ms ease;
+  transition: background 120ms ease;
 }
 
 .entry-text:hover {
-  border-color: var(--soft-line);
-  background: var(--raised);
+  background: #f1f4f8;
 }
 
 .entry-editor {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
 }
 
-.entry-edit {
-  display: block;
-  width: 100%;
-  min-height: 78px;
-  max-height: 60vh;
-  padding: 9px 11px;
-  resize: none;
-  overflow-y: auto;
-  border: 1px solid #c3cee8;
-  border-radius: var(--radius);
-  color: var(--ink);
-  background: var(--card);
-  font-size: 15px;
-  line-height: 1.6;
-  box-shadow: 0 0 0 3px rgba(47, 86, 211, 0.09);
+.entry-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
-.entry-edit:focus {
-  outline: none;
+.entry-edit-actions .button {
+  min-height: 32px;
+  font-size: 13px;
 }
 
 .edit-hint {
+  margin-right: auto;
   color: var(--faint);
   font-size: 12px;
+}
+
+.entry-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
 }
 
 .entry-meta {

@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import Editor from "./Editor";
+import RichContent from "./RichContent";
+import { toPlainText } from "./sanitize";
 
 const STORAGE_KEY = "shipbook_v1";
 const LEGACY_KEY = "massic_deploy_tracker_v1";
@@ -115,6 +118,12 @@ function Icon({ name, size = 18, className = "" }) {
     ),
     check: <path d="m5 12 4 4L19 6" />,
     back: <path d="m15 18-6-6 6-6" />,
+    pencil: (
+      <>
+        <path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4Z" />
+        <path d="m14.5 5.5 4 4" />
+      </>
+    ),
     sort: (
       <>
         <path d="M6 4v16m0 0 3.2-3.4M6 20l-3.2-3.4" />
@@ -239,13 +248,16 @@ function EmptyState({ icon, title, copy }) {
 function EntryComposer({ onAdd }) {
   const [text, setText] = useState("");
   const [tag, setTag] = useState("normal");
+  // Bumping the key remounts the editor, which is how it gets cleared.
+  const [editorKey, setEditorKey] = useState(0);
 
   function submit(event) {
-    event.preventDefault();
+    event?.preventDefault();
     if (!text.trim()) return;
     onAdd({ id: uid(), text: text.trim(), tag, runItems: [] });
     setText("");
     setTag("normal");
+    setEditorKey((key) => key + 1);
   }
 
   return (
@@ -257,18 +269,13 @@ function EntryComposer({ onAdd }) {
         <span className="composer-label">New entry</span>
         <span className="composer-hint">⌘/Ctrl + Enter to add</span>
       </div>
-      <AutoTextarea
-        className="composer-input"
-        minRows={4}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) submit(event);
-        }}
-        placeholder={
-          "What’s going out in the next ship?\n\nWrite as much as you need — line breaks are kept."
-        }
-        aria-label="New entry"
+      <Editor
+        key={editorKey}
+        className="composer-editor"
+        value=""
+        onChange={setText}
+        onSubmit={submit}
+        placeholder="What’s going out in the next ship?"
       />
       <div className="composer-foot">
         <div className="tag-picker" aria-label="Entry type">
@@ -358,6 +365,11 @@ function EntryCard({ entry, number, onUpdate, onDelete }) {
     setEditing(true);
   }
 
+  function cancelEditing() {
+    setDraft(entry.text);
+    setEditing(false);
+  }
+
   function saveText() {
     const text = draft.trim();
     if (text) onUpdate({ ...entry, text });
@@ -377,27 +389,39 @@ function EntryCard({ entry, number, onUpdate, onDelete }) {
         <div className="entry-content">
           {editing ? (
             <div className="entry-editor">
-              <AutoTextarea
+              <Editor
                 className="entry-edit"
                 autoFocus
-                minRows={3}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onBlur={saveText}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) saveText();
-                  if (event.key === "Escape") {
-                    setDraft(entry.text);
-                    setEditing(false);
-                  }
-                }}
+                value={entry.text}
+                onChange={setDraft}
+                onSubmit={saveText}
+                onCancel={cancelEditing}
               />
-              <span className="edit-hint">Click away to save · Esc to discard</span>
+              <div className="entry-edit-actions">
+                <span className="edit-hint">⌘/Ctrl + Enter to save · Esc to discard</span>
+                <button className="button button-quiet" onClick={cancelEditing}>
+                  Cancel
+                </button>
+                <button
+                  className="button button-primary"
+                  disabled={!draft.trim()}
+                  onClick={saveText}
+                >
+                  Save
+                </button>
+              </div>
             </div>
           ) : (
-            <button className="entry-text" onClick={startEditing} title="Click to edit">
-              {entry.text}
-            </button>
+            <div
+              className="entry-text"
+              title="Click to edit"
+              onClick={(event) => {
+                // Links inside an entry should open, not start an edit.
+                if (!event.target.closest("a")) startEditing();
+              }}
+            >
+              <RichContent html={entry.text} />
+            </div>
           )}
           <div className="entry-meta">
             <TagSelect tag={entry.tag} onChange={(tag) => onUpdate({ ...entry, tag })} />
@@ -408,13 +432,20 @@ function EntryCard({ entry, number, onUpdate, onDelete }) {
             )}
           </div>
         </div>
-        <button
-          className="icon-button danger-on-hover"
-          title="Delete entry"
-          onClick={() => onDelete(entry.id)}
-        >
-          <Icon name="trash" size={16} />
-        </button>
+        <div className="entry-actions">
+          {!editing && (
+            <button className="icon-button" title="Edit entry" onClick={startEditing}>
+              <Icon name="pencil" size={15} />
+            </button>
+          )}
+          <button
+            className="icon-button danger-on-hover"
+            title="Delete entry"
+            onClick={() => onDelete(entry.id)}
+          >
+            <Icon name="trash" size={16} />
+          </button>
+        </div>
       </div>
 
       {entry.runItems.length > 0 && (
@@ -604,7 +635,7 @@ function CheckRow({ item, checked, disabled, onToggle, isPush = false }) {
       <span className="checkbox">{checked && <Icon name="check" size={14} />}</span>
       <span className="check-copy">
         <strong>{item.text}</strong>
-        {item.entry && <small>From: {item.entry}</small>}
+        {item.entry && <small>From: {toPlainText(item.entry)}</small>}
       </span>
       {!isPush && <span className="order">#{item.order}</span>}
     </button>
@@ -781,7 +812,7 @@ function HistoryView({ history, newestFirst, onToggleOrder }) {
                       <div className="history-entry" key={entry.id}>
                         <span>{String(index + 1).padStart(2, "0")}</span>
                         <div>
-                          <strong>{entry.text}</strong>
+                          <RichContent className="history-text" html={entry.text} />
                           <Tag tag={entry.tag} />
                           {entry.runItems.map((item) => (
                             <code key={item.id}>
