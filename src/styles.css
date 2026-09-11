@@ -503,6 +503,16 @@ code {
   min-height: 78px;
 }
 
+.notes-editor {
+  margin-top: 28px;
+}
+
+.notes-editor .ql-editor {
+  min-height: min(62vh, 640px);
+  max-height: none;
+  padding: 16px 18px;
+}
+
 .ql-snow.ql-toolbar button,
 .ql-snow .ql-toolbar button {
   width: 27px;

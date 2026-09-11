@@ -21,7 +21,7 @@ const newShip = () => ({
   shippedAt: null,
   entries: [],
 });
-const initialState = () => ({ version: 1, current: newShip(), history: [] });
+const initialState = () => ({ version: 1, current: newShip(), history: [], notes: "" });
 
 function migrateLegacy(data) {
   if (!data?.current?.changes) return null;
@@ -47,13 +47,17 @@ function migrateLegacy(data) {
     version: 1,
     current: migrateShip(data.current),
     history: (data.history ?? []).map(migrateShip),
+    notes: "",
   };
 }
 
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...initialState(), ...parsed, notes: parsed.notes ?? "" };
+    }
     const legacy = localStorage.getItem(LEGACY_KEY);
     if (legacy) return migrateLegacy(JSON.parse(legacy)) ?? initialState();
   } catch {
@@ -117,6 +121,12 @@ function Icon({ name, size = 18, className = "" }) {
       </>
     ),
     check: <path d="m5 12 4 4L19 6" />,
+    note: (
+      <>
+        <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" />
+        <path d="M14 3v6h6M8 13h8M8 17h5" />
+      </>
+    ),
     back: <path d="m15 18-6-6 6-6" />,
     pencil: (
       <>
@@ -833,6 +843,30 @@ function HistoryView({ history, newestFirst, onToggleOrder }) {
   );
 }
 
+function NotesView({ html, onChange }) {
+  return (
+    <>
+      <header className="page-header">
+        <div>
+          <p className="eyebrow">KEEP</p>
+          <h1>Notes</h1>
+          <p className="page-subtitle">
+            A pad for bullets you want to keep. Tab nests a line; Shift + Tab brings it back.
+          </p>
+        </div>
+      </header>
+      <Editor
+        className="notes-editor"
+        value={html}
+        onChange={onChange}
+        autoFocus
+        startInList="bullet"
+        placeholder="Write a list. Tab to nest."
+      />
+    </>
+  );
+}
+
 function DataView({ state, onImport, onReset }) {
   const fileInput = useRef(null);
 
@@ -880,7 +914,7 @@ function DataView({ state, onImport, onReset }) {
             <Icon name="download" size={20} />
           </span>
           <h2>Export your Shipbook</h2>
-          <p>Download the current ship and full history as a portable JSON file.</p>
+          <p>Download the current ship, notes, and full history as a portable JSON file.</p>
           <button className="button button-primary" onClick={download}>
             Download backup
           </button>
@@ -906,7 +940,7 @@ function DataView({ state, onImport, onReset }) {
       <section className="danger-zone">
         <div>
           <h2>Start over</h2>
-          <p>Delete the current ship and all history from this browser.</p>
+          <p>Delete the current ship, notes, and all history from this browser.</p>
         </div>
         <button
           className="button button-danger"
@@ -924,6 +958,7 @@ function DataView({ state, onImport, onReset }) {
 function Sidebar({ view, onNavigate }) {
   const links = [
     ["current", "list", "Current ship"],
+    ["notes", "note", "Notes"],
     ["history", "archive", "History"],
     ["data", "settings", "Data & backup"],
   ];
@@ -1016,6 +1051,12 @@ export default function App() {
             onShip={() => setView("shipping")}
           />
         )}
+        {view === "notes" && (
+          <NotesView
+            html={state.notes}
+            onChange={(notes) => setState((value) => ({ ...value, notes }))}
+          />
+        )}
         {view === "history" && (
           <HistoryView
             history={state.history}
@@ -1028,7 +1069,10 @@ export default function App() {
             state={state}
             onImport={(next) => {
               if (confirm("Replace this browser’s Shipbook data with the backup?")) {
-                setState(next);
+                setState({
+                  ...next,
+                  notes: next.notes ?? state.notes ?? "",
+                });
                 setView("current");
               }
             }}

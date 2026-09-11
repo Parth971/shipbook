@@ -7,6 +7,7 @@ const TOOLBAR = [
   ["bold", "italic", "underline", "strike"],
   ["link"],
   [{ list: "bullet" }, { list: "ordered" }],
+  [{ indent: "-1" }, { indent: "+1" }],
   ["blockquote", "code", "code-block"],
   ["clean"],
 ];
@@ -23,6 +24,8 @@ const TITLES = {
   "ql-clean": "Clear formatting",
   bullet: "Bulleted list",
   ordered: "Numbered list",
+  "-1": "Outdent (Shift + Tab)",
+  "+1": "Indent (Tab)",
 };
 
 function labelToolbar(container) {
@@ -43,6 +46,7 @@ export default function Editor({
   onCancel,
   placeholder = "",
   autoFocus = false,
+  startInList = "",
   className = "",
 }) {
   const wrapper = useRef(null);
@@ -87,6 +91,8 @@ export default function Editor({
     if (value) {
       if (looksLikeHtml(value)) quill.clipboard.dangerouslyPasteHTML(value, "silent");
       else quill.setText(value, "silent");
+    } else if (startInList) {
+      quill.formatLine(0, 1, "list", startInList, "silent");
     }
 
     quill.on(Quill.events.TEXT_CHANGE, () => {
