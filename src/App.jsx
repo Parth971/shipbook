@@ -80,10 +80,11 @@ function loadPrefs() {
 
 function Icon({ name, size = 18, className = "" }) {
   const paths = {
-    book: (
+    mark: (
       <>
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" />
+        <path d="M7.5 18.6h9" />
+        <path d="m7.6 14.8 4.4-4.4 4.4 4.4" />
+        <path d="m7.6 9.4 4.4-4.4 4.4 4.4" opacity=".6" />
       </>
     ),
     list: (
@@ -966,7 +967,7 @@ function Sidebar({ view, onNavigate }) {
     <aside className="sidebar">
       <button className="brand" onClick={() => onNavigate("current")}>
         <span className="brand-mark">
-          <Icon name="book" size={19} />
+          <Icon name="mark" size={19} />
         </span>
         <span>
           <strong>Shipbook</strong>
